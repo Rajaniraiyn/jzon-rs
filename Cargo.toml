@@ -15,4 +15,4 @@ license = "MIT"
 repository = "https://github.com/rajaniraiyn/jzon"
 homepage = "https://github.com/rajaniraiyn/jzon"
 keywords = ["json", "serialization", "zero-copy", "simd", "serde"]
-categories = ["encoding", "parsing", "no-std"]
+categories = ["encoding", "parsing"]

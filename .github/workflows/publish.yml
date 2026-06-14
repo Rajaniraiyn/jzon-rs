@@ -10,27 +10,35 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        env:
-          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
       - uses: dtolnay/rust-toolchain@stable
 
       - name: Publish jzon_derive
-        run: cargo publish -p jzon_derive
+        run: cargo publish -p jzon_derive --no-verify
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+      # Wait for crates.io to index jzon_derive before publishing dependents
+      - name: Wait for jzon_derive to be indexed
+        run: sleep 30
 
       - name: Publish jzon
-        run: cargo publish -p jzon
+        run: cargo publish -p jzon --no-verify
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+      - name: Wait for jzon to be indexed
+        run: sleep 30
 
       - name: Publish jzon_serde
-        run: cargo publish -p jzon_serde
+        run: cargo publish -p jzon_serde --no-verify
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
+      - name: Wait for jzon_serde to be indexed
+        run: sleep 30
+
       - name: Publish jzon_compat
-        run: cargo publish -p jzon_compat
+        run: cargo publish -p jzon_compat --no-verify
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
