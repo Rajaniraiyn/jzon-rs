@@ -1,4 +1,5 @@
 [package]
+description = "Drop-in serde_json replacement powered by jzon (Cargo patch)"
 name = "jzon_compat"
 version.workspace = true
 edition.workspace = true

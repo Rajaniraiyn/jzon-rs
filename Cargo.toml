@@ -10,4 +10,9 @@ resolver = "2"
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-authors = ["rajaniraiyn@gmail.com"]
+authors = ["Rajaniraiyn <rajaniraiyn@gmail.com>"]
+license = "MIT"
+repository = "https://github.com/rajaniraiyn/jzon"
+homepage = "https://github.com/rajaniraiyn/jzon"
+keywords = ["json", "serialization", "zero-copy", "simd", "serde"]
+categories = ["encoding", "parsing", "no-std"]

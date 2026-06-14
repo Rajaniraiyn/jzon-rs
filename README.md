@@ -1,5 +1,9 @@
 # jzon
 
+[![Crates.io](https://img.shields.io/crates/v/jzon.svg)](https://crates.io/crates/jzon)
+[![Docs.rs](https://docs.rs/jzon/badge.svg)](https://docs.rs/jzon)
+[![CI](https://github.com/rajaniraiyn/jzon/actions/workflows/ci.yml/badge.svg)](https://github.com/rajaniraiyn/jzon/actions)
+
 Zero-copy JSON for Rust. A proc-macro generates a typed, monomorphised
 parser and serializer per struct at compile time — no runtime dispatch,
 no intermediate `Value`, no unnecessary allocations.
@@ -110,3 +114,7 @@ borrowing to any type deriving `serde::Deserialize`.
 Types: all primitives, `String`, `&'de str`, `Option<T>`, `Vec<T>`,
 `HashMap`, `BTreeMap`, `char`, `()`, tuples 1–12, `u128`/`i128`,
 newtype structs, tuple structs, enum struct variants.
+
+---
+
+Made with ❤️ by [Rajaniraiyn](https://github.com/rajaniraiyn)

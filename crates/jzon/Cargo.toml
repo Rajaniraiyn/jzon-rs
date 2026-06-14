@@ -1,4 +1,5 @@
 [package]
+description = "Zero-copy JSON serialization with compile-time generated typed parsers"
 name = "jzon"
 version.workspace = true
 edition.workspace = true

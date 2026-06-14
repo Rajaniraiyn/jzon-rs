@@ -1,4 +1,5 @@
 [package]
+description = "Proc-macro crate for #[derive(ToJson, FromJson)] — part of jzon"
 name = "jzon_derive"
 version.workspace = true
 edition.workspace = true
