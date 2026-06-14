@@ -91,6 +91,36 @@ struct CitmCatalog {
     #[serde(rename = "venueNames")]
     venue_names: HashMap<String, String>,
 }
+#[derive(serde::Serialize, serde::Deserialize, jzon::ToJson, jzon::FromJson, Clone, Default)]
+#[serde(default)]
+struct GeneratedRecord {
+    id:       u64,
+    name:     String,
+    score:    f64,
+    active:   bool,
+    tags:     Vec<String>,
+    metadata: GeneratedMeta,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, jzon::ToJson, jzon::FromJson, Clone, Default)]
+#[serde(default)]
+struct GeneratedMeta {
+    created: String,
+    updated: String,
+    version: u64,
+}
+
+#[derive(serde::Serialize, serde::Deserialize, jzon::ToJson, jzon::FromJson, Clone)]
+struct Coord { x: f64, y: f64 }
+
+#[derive(serde::Serialize, serde::Deserialize, jzon::ToJson, jzon::FromJson, Clone, Default)]
+#[serde(default)]
+struct MixedData {
+    flat_array: Vec<Coord>,
+    strings: Vec<String>,
+    // ponytail: 'nested' is complex/recursive — skipped; jzon ignores unknown fields by default
+}
+
 #[derive(serde::Serialize, serde::Deserialize, jzon::ToJson, Clone)]
 #[serde(tag = "type")]
 enum ShapeEnum {
@@ -111,13 +141,11 @@ struct Record {
     label: String,
     active: bool,
 }
-/// Tiny object for hot-path micro benchmark.
 #[derive(Serialize, Deserialize, ToJson, FromJson, Clone)]
 struct Tiny {
     id: u64,
     ok: bool,
 }
-/// Large string-heavy object — 10 string fields ~50 chars each.
 #[derive(Serialize, Deserialize, ToJson, FromJson, Clone)]
 struct StringHeavy {
     f0: String,
@@ -131,7 +159,6 @@ struct StringHeavy {
     f8: String,
     f9: String,
 }
-/// Deeply nested object (5 levels).
 #[derive(Serialize, Deserialize, ToJson, FromJson, Clone)]
 struct Deep {
     a: DeepL2,
@@ -156,7 +183,6 @@ struct DeepL5 {
 struct DeepL6 {
     f: i64,
 }
-/// Wide struct with 20 fields — exercises PHF dispatch.
 #[derive(Serialize, Deserialize, ToJson, FromJson, Clone)]
 struct Wide {
     f01: u64,
@@ -180,7 +206,6 @@ struct Wide {
     f19: i64,
     f20: u64,
 }
-/// Mixed record for array benchmark.
 #[derive(Serialize, Deserialize, ToJson, FromJson, Clone)]
 struct MixedRecord {
     id: u64,
@@ -189,7 +214,6 @@ struct MixedRecord {
     active: bool,
     rank: i64,
 }
-/// 1000-element array of tiny objects: [{"id":0,"ok":true}, ...]
 static TINY_ARRAY: OnceLock<String> = OnceLock::new();
 fn tiny_array_json() -> &'static str {
     TINY_ARRAY.get_or_init(|| {
@@ -205,7 +229,6 @@ fn tiny_array_json() -> &'static str {
         s
     })
 }
-/// 500 KB JSON: 100 objects each with 10 string fields (~50 chars each).
 static STRING_HEAVY_JSON: OnceLock<String> = OnceLock::new();
 fn string_heavy_json() -> &'static str {
     STRING_HEAVY_JSON.get_or_init(|| {
@@ -225,10 +248,8 @@ fn string_heavy_json() -> &'static str {
         s
     })
 }
-/// Deeply nested JSON.
 const DEEP_JSON: &str =
     r#"{"a":{"b":{"c":{"d":{"e":{"f":42}}}}}}"#;
-/// Wide struct JSON (20 fields).
 static WIDE_JSON: OnceLock<String> = OnceLock::new();
 fn wide_json() -> &'static str {
     WIDE_JSON.get_or_init(|| {
@@ -240,7 +261,6 @@ fn wide_json() -> &'static str {
         }).unwrap()
     })
 }
-/// Mixed array: 200 MixedRecord objects (~10 KB).
 static MIXED_ARRAY_JSON: OnceLock<String> = OnceLock::new();
 fn mixed_array_json() -> &'static str {
     MIXED_ARRAY_JSON.get_or_init(|| {
@@ -875,7 +895,6 @@ fn bench_fixed_buf(c: &mut Criterion) {
     g.finish();
 }
 fn bench_hashmap(c: &mut Criterion) {
-    // ~50 KB JSON object with ~200 string:string key-value pairs
     static HASHMAP_JSON: OnceLock<String> = OnceLock::new();
     let input = HASHMAP_JSON.get_or_init(|| {
         let mut s = String::from("{");
@@ -969,6 +988,91 @@ fn bench_enum_variants(c: &mut Criterion) {
     g2.finish();
 }
 
+fn bench_generated_50k(c: &mut Criterion) {
+    let input = read_data("generated_50k.json");
+    let bytes = input.len() as u64;
+
+    {
+        let mut g = c.benchmark_group("deserialize/generated_50k");
+        g.throughput(Throughput::Bytes(bytes));
+        g.sample_size(15);
+        g.warm_up_time(Duration::from_millis(500));
+        g.measurement_time(Duration::from_secs(4));
+
+        g.bench_function("serde_json", |b| {
+            b.iter(|| serde_json::from_str::<serde_json::Value>(black_box(&input)).unwrap())
+        });
+        g.bench_function("sonic_rs", |b| {
+            b.iter(|| sonic_rs::from_str::<serde_json::Value>(black_box(&input)).unwrap())
+        });
+        g.bench_function("jzon/A", |b| {
+            b.iter(|| Vec::<GeneratedRecord>::from_json_str(black_box(&input)).unwrap())
+        });
+        g.bench_function("jzon/B", |b| {
+            b.iter(|| jzon_serde::from_str::<serde_json::Value>(black_box(&input)).unwrap())
+        });
+        g.finish();
+    }
+
+    {
+        let val: Vec<GeneratedRecord> = serde_json::from_str(&input).unwrap();
+        let mut g = c.benchmark_group("serialize/generated_50k");
+        g.throughput(Throughput::Bytes(bytes));
+        g.sample_size(15);
+        g.warm_up_time(Duration::from_millis(500));
+        g.measurement_time(Duration::from_secs(4));
+
+        g.bench_function("serde_json", |b| b.iter(|| serde_json::to_string(black_box(&val)).unwrap()));
+        g.bench_function("sonic_rs",   |b| b.iter(|| sonic_rs::to_string(black_box(&val)).unwrap()));
+        g.bench_function("jzon/A",     |b| b.iter(|| black_box(&val).to_json_bytes()));
+        g.bench_function("jzon/B",     |b| b.iter(|| jzon_serde::to_string(black_box(&val)).unwrap()));
+        g.finish();
+    }
+}
+
+fn bench_mixed_2mb(c: &mut Criterion) {
+    let input = read_data("mixed_2mb.json");
+    let bytes = input.len() as u64;
+
+    {
+        let mut g = c.benchmark_group("deserialize/mixed_2mb");
+        g.throughput(Throughput::Bytes(bytes));
+        g.sample_size(30);
+        g.warm_up_time(Duration::from_secs(1));
+        g.measurement_time(Duration::from_secs(5));
+
+        g.bench_function("serde_json", |b| {
+            b.iter(|| serde_json::from_str::<serde_json::Value>(black_box(&input)).unwrap())
+        });
+        g.bench_function("sonic_rs", |b| {
+            b.iter(|| sonic_rs::from_str::<serde_json::Value>(black_box(&input)).unwrap())
+        });
+        g.bench_function("jzon/B", |b| {
+            b.iter(|| jzon_serde::from_str::<serde_json::Value>(black_box(&input)).unwrap())
+        });
+        g.bench_function("jzon/A", |b| {
+            b.iter(|| MixedData::from_json_str(black_box(&input)).unwrap())
+        });
+        g.finish();
+    }
+
+    {
+        let typed_val: MixedData = serde_json::from_str(&input).unwrap();
+        let val: serde_json::Value = serde_json::from_str(&input).unwrap();
+        let mut g = c.benchmark_group("serialize/mixed_2mb");
+        g.throughput(Throughput::Bytes(bytes));
+        g.sample_size(30);
+        g.warm_up_time(Duration::from_secs(1));
+        g.measurement_time(Duration::from_secs(5));
+
+        g.bench_function("serde_json", |b| b.iter(|| serde_json::to_string(black_box(&val)).unwrap()));
+        g.bench_function("sonic_rs",   |b| b.iter(|| sonic_rs::to_string(black_box(&val)).unwrap()));
+        g.bench_function("jzon/B",     |b| b.iter(|| jzon_serde::to_string(black_box(&val)).unwrap()));
+        g.bench_function("jzon/A",     |b| b.iter(|| black_box(&typed_val).to_json_bytes()));
+        g.finish();
+    }
+}
+
 criterion_group!(
     benches,
     bench_twitter_deser,
@@ -988,5 +1092,7 @@ criterion_group!(
     bench_fixed_buf,
     bench_hashmap,
     bench_enum_variants,
+    bench_generated_50k,
+    bench_mixed_2mb,
 );
 criterion_main!(benches);
