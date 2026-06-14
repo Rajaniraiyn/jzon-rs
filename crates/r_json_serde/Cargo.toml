@@ -1,0 +1,15 @@
+[package]
+name = "r_json_serde"
+version.workspace = true
+edition.workspace = true
+description = "SIMD-accelerated serde Serializer/Deserializer — drop-in speed upgrade for any serde type"
+
+[features]
+default = []
+simd       = ["r_json/simd"]
+fast-float = ["r_json/fast-float"]
+unstable   = ["r_json/unstable"]
+
+[dependencies]
+r_json  = { path = "../r_json" }
+serde   = { version = "1", features = ["derive"] }

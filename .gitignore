@@ -1,0 +1,5 @@
+/target/
+Cargo.lock
+bench_results/
+*.swp
+.DS_Store

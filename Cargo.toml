@@ -1,0 +1,25 @@
+[workspace]
+members = [
+    "crates/r_json",
+    "crates/r_json_derive",
+    "crates/r_json_serde",       # serde Serializer/Deserializer (works with any serde type)
+    "crates/r_json_compat",      # serde_json API-compatible drop-in replacement
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["rajaniraiyn@abacus.ai"]
+
+# ── Drop-in patch instructions ────────────────────────────────────────────────
+# To replace serde_json in your project (or any dependency like reqwest, axum,
+# tower-http, …) with r_json's SIMD-accelerated implementation, add to your
+# workspace Cargo.toml:
+#
+#   [patch.crates-io]
+#   serde_json = { path = "<path-to-r_json>/crates/r_json_compat" }
+#
+# Cargo will transparently swap every dependency on serde_json for r_json_compat,
+# which exports the identical public API while routing the hot paths (from_str,
+# to_string, to_writer, from_reader) through r_json_serde's SIMD engine.
