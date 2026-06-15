@@ -45,15 +45,7 @@ fn main() {
 
 ### Float serialization backend
 
-`zmij-float-ser` swaps `ryu` for [`zmij`](https://crates.io/crates/zmij) (Schubfach + yy_double). On the `canada` workload:
-
-| Platform        | ryu     | zmij    |
-|-----------------|--------:|--------:|
-| aarch64-darwin  | 3.04 ms | 3.39 ms |
-| aarch64-linux   | 3.44 ms | **2.33 ms** |
-| x86_64-linux    | 4.30 ms | **3.14 ms** |
-
-Linux → zmij. Apple Silicon → ryu.
+`zmij-float-ser` swaps `ryu` for [`zmij`](https://crates.io/crates/zmij). Wins ~30% on Linux, loses ~10% on Apple Silicon — see [#3](https://github.com/Rajaniraiyn/jzon-rs/pull/3#issuecomment-4709984480) for numbers.
 
 ### Using the serde feature
 
