@@ -16,4 +16,4 @@ repository = "https://github.com/Rajaniraiyn/jzon-rs"
 homepage = "https://github.com/Rajaniraiyn/jzon-rs"
 keywords = ["json", "serialization", "zero-copy", "simd", "serde"]
 categories = ["encoding", "parsing"]
-rust-version = "1.65"
+rust-version = "1.71"

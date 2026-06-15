@@ -39,8 +39,13 @@ fn main() {
 | `compat` | `jzon::compat` — `serde_json`-compatible API (`Value`, `json!`, etc.) |
 | `simd` | u128 SWAR scanning (16 bytes/iter) |
 | `fast-float` | `ryu` float serialization, `fast_float2` parsing |
+| `zmij-float-ser` | Use [`zmij`](https://crates.io/crates/zmij) (Schubfach + yy_double) for float serialization instead of `ryu`. See "Float serialization backend" below for tradeoffs. MSRV 1.71. |
 | `unstable` | `std::simd` portable SIMD 32–64 bytes/iter (nightly only) |
 | `stats` | Allocation counters on `Scanner` |
+
+### Float serialization backend
+
+`zmij-float-ser` swaps `ryu` for [`zmij`](https://crates.io/crates/zmij). Wins ~30% on Linux, loses ~10% on Apple Silicon — see [#3](https://github.com/Rajaniraiyn/jzon-rs/pull/3#issuecomment-4709984480) for numbers.
 
 ### Using the serde feature
 

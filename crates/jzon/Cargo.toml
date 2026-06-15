@@ -20,11 +20,13 @@ simd       = []
 unstable   = []
 stats      = []
 fast-float = ["dep:ryu", "dep:fast-float2"]
+zmij-float-ser = ["dep:zmij"]
 
 [dependencies]
 jzon_derive = { package = "jzon-rs-derive", path = "../jzon_derive", version = "0.1", optional = true }
 ryu         = { version = "1", optional = true }
 fast-float2 = { version = "0.2", optional = true }
+zmij = { version = "1", optional = true }
 
 [dev-dependencies]
 sonic-rs   = "0.3"

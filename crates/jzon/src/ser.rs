@@ -270,13 +270,19 @@ impl ToJson for f64 {
     #[inline]
     fn json_write(&self, w: &mut Vec<u8>) {
         if !self.is_finite() { w.extend_from_slice(b"null"); return; }
-        #[cfg(feature = "fast-float")]
+        #[cfg(feature = "zmij-float-ser")]
+        {
+            let mut buf = zmij::Buffer::new();
+            w.extend_from_slice(buf.format_finite(*self).as_bytes());
+            return;
+        }
+        #[cfg(all(feature = "fast-float", not(feature = "zmij-float-ser")))]
         {
             let mut buf = ryu::Buffer::new();
             w.extend_from_slice(buf.format_finite(*self).as_bytes());
             return;
         }
-        #[cfg(not(feature = "fast-float"))]
+        #[cfg(not(any(feature = "fast-float", feature = "zmij-float-ser")))]
         w.extend_from_slice(format!("{}", self).as_bytes());
     }
     /// ryu's worst-case output for f64 is 24 characters, but the practical output for
@@ -292,13 +298,19 @@ impl ToJson for f32 {
     #[inline]
     fn json_write(&self, w: &mut Vec<u8>) {
         if !self.is_finite() { w.extend_from_slice(b"null"); return; }
-        #[cfg(feature = "fast-float")]
+        #[cfg(feature = "zmij-float-ser")]
+        {
+            let mut buf = zmij::Buffer::new();
+            w.extend_from_slice(buf.format_finite(*self).as_bytes());
+            return;
+        }
+        #[cfg(all(feature = "fast-float", not(feature = "zmij-float-ser")))]
         {
             let mut buf = ryu::Buffer::new();
             w.extend_from_slice(buf.format_finite(*self).as_bytes());
             return;
         }
-        #[cfg(not(feature = "fast-float"))]
+        #[cfg(not(any(feature = "fast-float", feature = "zmij-float-ser")))]
         w.extend_from_slice(format!("{}", self).as_bytes());
     }
     /// ryu's output for f32 is at most 14 characters.
