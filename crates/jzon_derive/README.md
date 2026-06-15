@@ -2,7 +2,7 @@
 
 [![crates.io](https://img.shields.io/crates/v/jzon-rs-derive.svg)](https://crates.io/crates/jzon-rs-derive)
 [![docs.rs](https://docs.rs/jzon-rs-derive/badge.svg)](https://docs.rs/jzon-rs-derive)
-[![MSRV](https://img.shields.io/badge/rustc-1.65%2B-blue.svg)](https://blog.rust-lang.org/2022/11/03/Rust-1.65.0.html)
+[![MSRV](https://img.shields.io/badge/rustc-1.71%2B-blue.svg)](https://blog.rust-lang.org/2022/11/03/Rust-1.71.0.html)
 
 Proc-macro crate for `#[derive(ToJson, FromJson)]` — part of [jzon](https://crates.io/crates/jzon-rs).
 

@@ -3,7 +3,7 @@
 [![crates.io](https://img.shields.io/crates/v/jzon-rs.svg)](https://crates.io/crates/jzon-rs)
 [![docs.rs](https://docs.rs/jzon-rs/badge.svg)](https://docs.rs/jzon-rs)
 [![CI](https://github.com/Rajaniraiyn/jzon-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/Rajaniraiyn/jzon-rs/actions)
-[![MSRV](https://img.shields.io/badge/rustc-1.65%2B-blue.svg)](https://blog.rust-lang.org/2022/11/03/Rust-1.65.0.html)
+[![MSRV](https://img.shields.io/badge/rustc-1.71%2B-blue.svg)](https://blog.rust-lang.org/2022/11/03/Rust-1.71.0.html)
 
 Zero-copy JSON for Rust with compile-time generated parsers.
 
@@ -11,7 +11,7 @@ Zero-copy JSON for Rust with compile-time generated parsers.
 
 ```toml
 [dependencies]
-jzon-rs = "0.1"
+jzon-rs = "0.2"
 ```
 
 ```rust

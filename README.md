@@ -3,7 +3,7 @@
 [![Crates.io](https://img.shields.io/crates/v/jzon-rs.svg)](https://crates.io/crates/jzon-rs)
 [![Docs.rs](https://docs.rs/jzon-rs/badge.svg)](https://docs.rs/jzon-rs)
 [![CI](https://github.com/Rajaniraiyn/jzon-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/Rajaniraiyn/jzon-rs/actions)
-[![MSRV](https://img.shields.io/badge/rustc-1.65%2B-blue.svg)](https://blog.rust-lang.org/2022/11/03/Rust-1.65.0.html)
+[![MSRV](https://img.shields.io/badge/rustc-1.71%2B-blue.svg)](https://blog.rust-lang.org/2022/11/03/Rust-1.71.0.html)
 
 Zero-copy JSON for Rust. A proc-macro generates a typed, monomorphised
 parser and serializer per struct at compile time — no runtime dispatch,
@@ -17,7 +17,7 @@ Add `jzon-rs`. The `derive` feature is on by default.
 
 ```toml
 [dependencies]
-jzon-rs = "0.1"
+jzon-rs = "0.2"
 ```
 
 ```rust
@@ -41,7 +41,7 @@ Add `jzon-rs-serde`. No other changes to your code.
 
 ```toml
 [dependencies]
-jzon-rs-serde = "0.1"
+jzon-rs-serde = "0.2"
 serde = { version = "1", features = ["derive"] }
 ```
 
@@ -63,7 +63,7 @@ through jzon automatically.
 
 ```toml
 [patch.crates-io]
-serde_json = { package = "jzon-rs-compat", version = "0.1" }
+serde_json = { package = "jzon-rs-compat", version = "0.2" }
 ```
 
 ## Features

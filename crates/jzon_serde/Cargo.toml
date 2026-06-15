@@ -18,7 +18,7 @@ unstable   = ["jzon/unstable"]
 stats      = ["jzon/stats"]
 
 [dependencies]
-jzon  = { package = "jzon-rs", path = "../jzon", version = "0.1", default-features = false }
+jzon  = { package = "jzon-rs", path = "../jzon", version = "0.2", default-features = false }
 serde = { version = "1", default-features = false, features = ["std"] }
 
 [dev-dependencies]

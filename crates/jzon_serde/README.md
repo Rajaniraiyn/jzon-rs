@@ -2,7 +2,7 @@
 
 [![crates.io](https://img.shields.io/crates/v/jzon-rs-serde.svg)](https://crates.io/crates/jzon-rs-serde)
 [![docs.rs](https://docs.rs/jzon-rs-serde/badge.svg)](https://docs.rs/jzon-rs-serde)
-[![MSRV](https://img.shields.io/badge/rustc-1.65%2B-blue.svg)](https://blog.rust-lang.org/2022/11/03/Rust-1.65.0.html)
+[![MSRV](https://img.shields.io/badge/rustc-1.71%2B-blue.svg)](https://blog.rust-lang.org/2022/11/03/Rust-1.71.0.html)
 
 SIMD-backed serde `Serializer`/`Deserializer` for any type deriving `serde::Serialize`/`serde::Deserialize`.
 
@@ -10,7 +10,7 @@ SIMD-backed serde `Serializer`/`Deserializer` for any type deriving `serde::Seri
 
 ```toml
 [dependencies]
-jzon-rs-serde = "0.1"
+jzon-rs-serde = "0.2"
 serde = { version = "1", features = ["derive"] }
 ```
 

@@ -18,7 +18,7 @@ unstable   = ["jzon_serde/unstable"]
 stats      = ["jzon_serde/stats"]
 
 [dependencies]
-jzon_serde = { package = "jzon-rs-serde", path = "../jzon_serde", version = "0.1" }
+jzon_serde = { package = "jzon-rs-serde", path = "../jzon_serde", version = "0.2" }
 serde      = { version = "1", default-features = false, features = ["std"] }
 serde_json = { version = "1" }
 
