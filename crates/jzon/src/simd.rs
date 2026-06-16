@@ -214,13 +214,6 @@ fn find_escape_simd32(input: &[u8], start: usize) -> usize {
     find_escape_simd16(input, i)
 }
 
-/// Returns `true` if any byte in `slice` is a raw control character (< 0x20),
-/// which is forbidden inside JSON string bodies by ECMA-404 §7.
-#[inline]
-pub fn has_control_char(slice: &[u8]) -> bool {
-    slice.iter().any(|&b| b < 0x20)
-}
-
 /// Find the first byte needing JSON string escaping (`"`, `\`, or `< 0x20`).
 #[inline]
 pub fn find_escape(input: &[u8], start: usize) -> usize {

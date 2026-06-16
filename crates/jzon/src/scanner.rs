@@ -177,19 +177,16 @@ impl<'de> Scanner<'de> {
         self.skip_whitespace();
         self.expect_byte(b'"')?;
         let start = self.pos;
-        let stop = simd::find(self.input, self.pos);
+        // Single pass: find_escape stops at `"`, `\`, or any byte < 0x20.
+        let stop = simd::find_escape(self.input, self.pos);
         match self.input.get(stop) {
             Some(&b'"') => {
-                let k = &self.input[start..stop];
-                // ECMA-404 §7: raw control chars forbidden in string bodies.
-                if simd::has_control_char(k) {
-                    return Err(Error::InvalidEscape);
-                }
                 self.pos = stop + 1;
-                Ok(k)
+                Ok(&self.input[start..stop])
             }
             Some(&b'\\') => Err(Error::EscapedKey),
-            _ => Err(err_eof()),
+            Some(_) => Err(Error::InvalidEscape), // control char < 0x20
+            None => Err(err_eof()),
         }
     }
 
@@ -216,17 +213,13 @@ impl<'de> Scanner<'de> {
         self.skip_whitespace();
         self.expect_byte(b'"')?;
         let start = self.pos;
-        let stop = simd::find(self.input, start);
+        // Single pass: find_escape stops at `"`, `\`, or any byte < 0x20.
+        // A hit on `"` means the string is clean — no escapes, no control chars.
+        let stop = simd::find_escape(self.input, start);
 
         match self.input.get(stop) {
             Some(&b'"') => {
-                let content = &self.input[start..stop];
-                // ECMA-404 §7: raw control characters (U+0000–U+001F) are
-                // forbidden inside string bodies — they must be \-escaped.
-                if simd::has_control_char(content) {
-                    return Err(Error::InvalidEscape);
-                }
-                let s = core::str::from_utf8(content)
+                let s = core::str::from_utf8(&self.input[start..stop])
                     .map_err(|_| Error::InvalidUtf8)?;
                 self.pos = stop + 1;
 
@@ -244,7 +237,8 @@ impl<'de> Scanner<'de> {
 
                 Ok(JsonStr::Owned(owned))
             }
-            _ => Err(err_eof()),
+            Some(_) => Err(Error::InvalidEscape), // control char < 0x20
+            None => Err(err_eof()),
         }
     }
 
@@ -465,12 +459,10 @@ impl<'de> Scanner<'de> {
         // avoids the Vec-doubling realloc chain on escape-heavy strings.
         let mut buf: Vec<u8> =
             Vec::with_capacity(self.input.len().saturating_sub(content_start));
-        let prefix = &self.input[content_start..self.pos];
-        // ECMA-404 §7: raw control chars in the prefix (before the first \) are invalid.
-        if simd::has_control_char(prefix) {
-            return Err(Error::InvalidEscape);
-        }
-        buf.extend_from_slice(prefix);
+        // The caller (read_str) already positioned self.pos at the first `\`;
+        // find_escape already verified no control chars before that point,
+        // so the prefix is clean and we copy it directly.
+        buf.extend_from_slice(&self.input[content_start..self.pos]);
 
         loop {
             match self.input.get(self.pos) {
@@ -517,14 +509,16 @@ impl<'de> Scanner<'de> {
                 }
                 Some(_) => {
                     let seg_start = self.pos;
-                    let stop = simd::find(self.input, self.pos);
-                    let seg = &self.input[seg_start..stop];
-                    // ECMA-404 §7: raw control characters forbidden in strings.
-                    if simd::has_control_char(seg) {
-                        return Err(Error::InvalidEscape);
+                    // Single pass: find_escape stops at `"`, `\`, or any byte < 0x20.
+                    let stop = simd::find_escape(self.input, self.pos);
+                    match self.input.get(stop) {
+                        Some(&b'"') | Some(&b'\\') => {
+                            buf.extend_from_slice(&self.input[seg_start..stop]);
+                            self.pos = stop;
+                        }
+                        Some(_) => return Err(Error::InvalidEscape), // control char
+                        None => return Err(err_eof()),
                     }
-                    buf.extend_from_slice(seg);
-                    self.pos = stop;
                 }
                 None => return Err(err_eof()),
             }
