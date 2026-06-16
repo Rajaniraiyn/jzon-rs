@@ -404,9 +404,7 @@ jobs:
             fi
           fi
 
-          echo "DELTA_REPORT<<EOF" >> "$GITHUB_ENV"
-          printf "%s" "$DELTA_REPORT" >> "$GITHUB_ENV"
-          echo "EOF" >> "$GITHUB_ENV"
+          printf "%s" "$DELTA_REPORT" > /tmp/delta-report.md
 
       - name: Commit + create/update PR
         shell: bash
@@ -433,14 +431,15 @@ jobs:
           # Create or update PR
           EXISTING=$(gh pr list --head "$BRANCH" --state open --json number -q '.[0].number' || true)
 
+          DELTA=$(cat /tmp/delta-report.md 2>/dev/null || true)
           PR_BODY="Auto-generated benchmark results for \`${BASE_REF}\`.
 
-          Features: \`${{ inputs.features }}\` · [Run log](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+Features: \`${{ inputs.features }}\` · [Run log](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
-          ${DELTA_REPORT}
+${DELTA}
 
-          ---
-          *Updated automatically by bench.yml. Merge to publish bench numbers.*"
+---
+*Updated automatically by bench.yml. Merge to publish bench numbers.*"
 
           if [ -n "$EXISTING" ]; then
             gh pr edit "$EXISTING" --body "$PR_BODY"
