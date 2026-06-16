@@ -130,8 +130,16 @@ fn expand_struct(input: &DeriveInput) -> Result<TokenStream> {
     let mut writes: Vec<TokenStream> = Vec::new();
     let mut first = true;
     let mut open_brace_fused = false;
-    let mut hint_parts: Vec<TokenStream> = Vec::new();
+    // Compile-time key overhead: sum of all key-related constant bytes.
+    // Tracks the known-at-compile-time portion of the output size:
+    //   `{` (1) + `}` (1) + per non-skipped, non-conditional field: `"key":` (key.len()+3)
+    //   + separating commas between always-present fields (counted below).
+    let mut compile_time_key_overhead: usize = 2; // `{` + `}`
+    // Runtime field size hints (only for fields that are always serialized).
+    let mut runtime_hint_parts: Vec<TokenStream> = Vec::new();
     let mut serializable_field_count = 0usize;
+    // Track whether we have at least one always-present field for comma logic.
+    let mut always_present_count = 0usize;
 
     for field in fields {
         let fname = field.ident.as_ref().unwrap();
@@ -181,6 +189,8 @@ fn expand_struct(input: &DeriveInput) -> Result<TokenStream> {
                         #write_value
                     }
                 });
+                // Conditional field: does not contribute to compile-time overhead
+                // (it may or may not appear). Skip it in size hint.
             } else {
                 let fused_key = format!("{{\"{}\":", json_key);
                 let fused_lit = proc_macro2::Literal::byte_string(fused_key.as_bytes());
@@ -196,10 +206,12 @@ fn expand_struct(input: &DeriveInput) -> Result<TokenStream> {
                     }
                 });
                 open_brace_fused = true;
+                // `"key":` overhead: 1 (`"`) + key.len() + 2 (`":`) = key.len() + 3
                 if fattrs.serialize_with.is_none() {
-                    let key_overhead: usize = json_key.len() + 3;
-                    hint_parts.push(quote! {
-                        #key_overhead + ::jzon::ToJson::json_size_hint(&self.#fname)
+                    compile_time_key_overhead += json_key.len() + 3;
+                    always_present_count += 1;
+                    runtime_hint_parts.push(quote! {
+                        ::jzon::ToJson::json_size_hint(&self.#fname)
                     });
                 }
             }
@@ -218,6 +230,7 @@ fn expand_struct(input: &DeriveInput) -> Result<TokenStream> {
                         #write_value
                     }
                 });
+                // Conditional field: does not contribute to compile-time overhead.
             } else {
                 let fused_key = format!(",\"{}\":", json_key);
                 let fused_lit = proc_macro2::Literal::byte_string(fused_key.as_bytes());
@@ -232,10 +245,12 @@ fn expand_struct(input: &DeriveInput) -> Result<TokenStream> {
                         #write_value
                     }
                 });
+                // `,"key":` overhead: 1 (`,`) + 1 (`"`) + key.len() + 2 (`":`) = key.len() + 4
                 if fattrs.serialize_with.is_none() {
-                    let key_overhead: usize = json_key.len() + 4;
-                    hint_parts.push(quote! {
-                        #key_overhead + ::jzon::ToJson::json_size_hint(&self.#fname)
+                    compile_time_key_overhead += json_key.len() + 4;
+                    always_present_count += 1;
+                    runtime_hint_parts.push(quote! {
+                        ::jzon::ToJson::json_size_hint(&self.#fname)
                     });
                 }
             }
@@ -248,16 +263,25 @@ fn expand_struct(input: &DeriveInput) -> Result<TokenStream> {
         quote! { w.push(b'{'); }
     };
 
-    let size_hint_impl = if hint_parts.is_empty() {
+    let size_hint_impl = if always_present_count == 0 {
+        // All fields are either skipped or conditional: fall back to a fixed
+        // conservative estimate so we still pre-allocate something reasonable.
         quote! {
             #[inline]
             fn json_size_hint(&self) -> usize { 256 }
         }
     } else {
+        // Emit the compile-time key overhead as a named constant so the
+        // compiler can fold it into a single addend rather than recomputing
+        // it at every call site.
         quote! {
             #[inline]
             fn json_size_hint(&self) -> usize {
-                2usize #(+ #hint_parts)*
+                // KEY_OVERHEAD is a compile-time constant: `{` + `}` +
+                // sum of `"key":` (and leading `,`) lengths for every
+                // always-serialized field.
+                const KEY_OVERHEAD: usize = #compile_time_key_overhead;
+                KEY_OVERHEAD #(+ #runtime_hint_parts)*
             }
         }
     };
