@@ -38,6 +38,10 @@ on:
         type: boolean
         default: true
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   matrix:
     name: pick runners
@@ -134,9 +138,6 @@ jobs:
     needs: bench
     if: always() && inputs.update_docs && inputs.bench == 'bench_cmp'
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
     steps:
       - uses: actions/checkout@v4
         with:
