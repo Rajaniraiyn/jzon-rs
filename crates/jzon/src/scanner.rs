@@ -348,8 +348,6 @@ impl<'de> Scanner<'de> {
         }
     }
 
-    /// Skip remaining fields of an already-opened object (cursor is just past `{`).
-    /// Used by internally-tagged enum deserialization when the variant is unknown.
     /// Skip remaining array elements and the closing `]`.
     /// Call this after a partial `SeqAccess` visit to drain any unconsumed
     /// elements so the scanner is positioned after the `]`.
@@ -364,6 +362,8 @@ impl<'de> Scanner<'de> {
         }
     }
 
+    /// Skip remaining fields of an already-opened object (cursor is just past `{`).
+    /// Used by internally-tagged enum deserialization when the variant is unknown.
     pub fn skip_object_tail(&mut self) -> Result<(), Error> {
         loop {
             self.skip_whitespace();
