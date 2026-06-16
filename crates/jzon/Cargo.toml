@@ -48,3 +48,6 @@ harness = false
 
 [[test]]
 name = "large_data"
+
+[[test]]
+name = "serde_compat"

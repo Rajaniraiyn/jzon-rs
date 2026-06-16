@@ -74,6 +74,44 @@ impl From<jzon::Error> for Error {
     }
 }
 
+// ── float helpers ─────────────────────────────────────────────────────────────
+// serde_json always emits a decimal point for whole-number floats (e.g. 3.0 →
+// "3.0").  jzon's core ToJson impl omits it when using ryu (fast-float feature)
+// to keep the core crate allocation-free.  We add it back here in the serde
+// layer so that jzon_serde output matches serde_json expectations.
+
+#[inline]
+fn ensure_decimal_point(buf_start: usize, w: &mut Vec<u8>) {
+    let written = &w[buf_start..];
+    let has_dot = written.contains(&b'.');
+    let has_exp = written.contains(&b'e') || written.contains(&b'E');
+    if !has_dot && !has_exp {
+        w.extend_from_slice(b".0");
+    }
+}
+
+#[inline]
+fn serialize_float64(v: f64, w: &mut Vec<u8>) {
+    if !v.is_finite() {
+        w.extend_from_slice(b"null");
+        return;
+    }
+    let start = w.len();
+    v.json_write(w);
+    ensure_decimal_point(start, w);
+}
+
+#[inline]
+fn serialize_float32(v: f32, w: &mut Vec<u8>) {
+    if !v.is_finite() {
+        w.extend_from_slice(b"null");
+        return;
+    }
+    let start = w.len();
+    v.json_write(w);
+    ensure_decimal_point(start, w);
+}
+
 pub struct Serializer {
     output: Vec<u8>,
 }
@@ -133,12 +171,12 @@ impl<'a> ser_trait::Serializer for &'a mut Serializer {
 
     #[inline]
     fn serialize_f32(self, v: f32) -> Result<(), Error> {
-        v.json_write(&mut self.output);
+        serialize_float32(v, &mut self.output);
         Ok(())
     }
     #[inline]
     fn serialize_f64(self, v: f64) -> Result<(), Error> {
-        v.json_write(&mut self.output);
+        serialize_float64(v, &mut self.output);
         Ok(())
     }
 
@@ -541,7 +579,7 @@ impl<'de, 'a> de_trait::Deserializer<'de> for &'a mut Deserializer<'de> {
     fn deserialize_seq<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value, Error> {
         self.scanner.skip_whitespace();
         self.scanner.expect_byte(b'[')?;
-        let value = visitor.visit_seq(JsonSeqAccess { de: self, first: true })?;
+        let value = visitor.visit_seq(JsonSeqAccess { de: self, first: true, done: false })?;
         Ok(value)
     }
 
@@ -655,6 +693,8 @@ impl<'de, 'a> Deserializer<'de> {
 struct JsonSeqAccess<'a, 'de: 'a> {
     de: &'a mut Deserializer<'de>,
     first: bool,
+    /// Set to true once we have consumed the closing `]`.
+    done: bool,
 }
 
 impl<'de, 'a> SeqAccess<'de> for JsonSeqAccess<'a, 'de> {
@@ -666,7 +706,7 @@ impl<'de, 'a> SeqAccess<'de> for JsonSeqAccess<'a, 'de> {
     ) -> Result<Option<T::Value>, Error> {
         self.de.scanner.skip_whitespace();
         match self.de.scanner.peek_byte() {
-            Ok(b']') => { self.de.scanner.advance(); return Ok(None); }
+            Ok(b']') => { self.de.scanner.advance(); self.done = true; return Ok(None); }
             Err(_)   => return Err(Error::Scanner(jzon::Error::UnexpectedEof)),
             Ok(_)    => {}
         }
@@ -675,12 +715,24 @@ impl<'de, 'a> SeqAccess<'de> for JsonSeqAccess<'a, 'de> {
             self.de.scanner.skip_whitespace();
             if self.de.scanner.peek_byte() == Ok(b']') {
                 self.de.scanner.advance();
+                self.done = true;
                 return Ok(None);
             }
         }
         self.first = false;
         let value = seed.deserialize(&mut *self.de)?;
         Ok(Some(value))
+    }
+}
+
+impl<'a, 'de> Drop for JsonSeqAccess<'a, 'de> {
+    fn drop(&mut self) {
+        if !self.done {
+            // The visitor stopped early without draining all elements.
+            // Consume remaining array elements and the closing `]` so the
+            // scanner is positioned correctly for the caller.
+            let _ = self.de.scanner.skip_array_tail();
+        }
     }
 }
 
