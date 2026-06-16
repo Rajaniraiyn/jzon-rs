@@ -51,3 +51,6 @@ name = "large_data"
 
 [[test]]
 name = "serde_compat"
+
+[[test]]
+name = "json_spec"
