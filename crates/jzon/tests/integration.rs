@@ -1188,3 +1188,73 @@ fn serialize_deserialize_with_roundtrip() {
     let back = WithCustomBoth::from_json_str(&json).unwrap();
     assert_eq!(orig, back);
 }
+// ── schema-scan optimizations ─────────────────────────────────────────────────
+
+// Optimization 1: deny_unknown_fields first-byte prefix check.
+// A key whose first byte is not in the valid set should be rejected immediately.
+#[derive(FromJson, Debug, PartialEq)]
+#[serde(deny_unknown_fields)]
+struct DenyStrict {
+    id:    u32,
+    name:  String,
+    score: f64,
+}
+#[test]
+fn deny_unknown_first_byte_mismatch_errors() {
+    // 'z' is not a valid first byte for any of: "id", "name", "score"
+    let json = r#"{"id":1,"name":"Alice","score":9.5,"zzzUnknown":"x"}"#;
+    let result = DenyStrict::from_json_str(json);
+    assert!(
+        matches!(result, Err(jzon::Error::UnknownField)),
+        "expected UnknownField, got: {result:?}"
+    );
+}
+#[test]
+fn deny_unknown_known_first_byte_but_wrong_key_errors() {
+    // 'n' matches "name"'s first byte but "nobody" is not a valid key
+    let json = r#"{"id":1,"name":"Alice","score":9.5,"nobody":"x"}"#;
+    let result = DenyStrict::from_json_str(json);
+    assert!(
+        matches!(result, Err(jzon::Error::UnknownField)),
+        "expected UnknownField, got: {result:?}"
+    );
+}
+#[test]
+fn deny_unknown_valid_fields_ok() {
+    let json = r#"{"id":7,"name":"Bob","score":4.2}"#;
+    let v = DenyStrict::from_json_str(json).unwrap();
+    assert_eq!(v.id, 7);
+    assert_eq!(v.name, "Bob");
+    assert!((v.score - 4.2).abs() < 1e-9);
+}
+
+// Optimization 2: u8 bitmask for small-struct required-field tracking.
+// For structs with ≤8 fields, all required fields are tracked in a u8 bitmask
+// and a missing field is caught with a single comparison after the loop.
+#[derive(FromJson, Debug, PartialEq)]
+struct SmallBitmask {
+    a: u32,
+    b: u32,
+    c: u32,
+}
+#[test]
+fn small_bitmask_all_fields_present() {
+    let json = r#"{"a":1,"b":2,"c":3}"#;
+    let v = SmallBitmask::from_json_str(json).unwrap();
+    assert_eq!((v.a, v.b, v.c), (1, 2, 3));
+}
+#[test]
+fn small_bitmask_missing_field_errors() {
+    let json = r#"{"a":1,"b":2}"#;
+    let result = SmallBitmask::from_json_str(json);
+    assert!(
+        matches!(result, Err(jzon::Error::MissingField(_))),
+        "expected MissingField, got: {result:?}"
+    );
+}
+#[test]
+fn small_bitmask_out_of_order_ok() {
+    let json = r#"{"c":30,"a":10,"b":20}"#;
+    let v = SmallBitmask::from_json_str(json).unwrap();
+    assert_eq!((v.a, v.b, v.c), (10, 20, 30));
+}

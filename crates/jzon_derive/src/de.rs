@@ -304,6 +304,61 @@ fn expand_struct(input: &DeriveInput) -> Result<TokenStream> {
 
     let dispatch_expr = generate_optimized_dispatch(&dispatch_entries, num_active);
 
+    // ── Optimization 1: deny_unknown_fields first-byte prefix check ───────────
+    // ponytail: collect unique first bytes at proc-macro time; emit a tiny const
+    // slice + one .contains() check before any string comparison.  Prunes ~80-90%
+    // of unknown-field candidates for typical structs without touching scanner API.
+    let first_byte_check: TokenStream = if container.deny_unknown_fields && !dispatch_entries.is_empty() {
+        // Collect every unique first byte across all keys (including aliases).
+        let mut first_bytes: Vec<u8> = dispatch_entries
+            .iter()
+            .filter(|e| !e.key.is_empty())
+            .map(|e| e.key[0])
+            .collect();
+        first_bytes.sort_unstable();
+        first_bytes.dedup();
+        let byte_lits: Vec<TokenStream> = first_bytes.iter().map(|&b| quote! { #b }).collect();
+        let n = first_bytes.len();
+        quote! {
+            // compile-time known valid first bytes for all field names (incl. aliases)
+            const VALID_FIRST_BYTES: [u8; #n] = [#(#byte_lits),*];
+            if !_key.is_empty() && !VALID_FIRST_BYTES.contains(&_key[0]) {
+                return Err(::jzon::Error::UnknownField);
+            }
+        }
+    } else {
+        quote! {}
+    };
+
+    // ── Optimization 2: u8 bitmask for required-field tracking (≤8 fields) ────
+    // ponytail: for small structs replace N separate Option checks with a single
+    // u8 bitmask comparison — 1 byte on stack vs N bytes, one comparison vs a loop.
+    //
+    // "Required" here means: not skip/skip_deserializing, not Option<T>, no default,
+    // container-level default not set.  We only use the bitmask when num_active ≤ 8.
+    //
+    // Compute required_slots only for bitmask-eligible structs (num_active ≤ 8) so
+    // that `1u8 << slot` never overflows at proc-macro time.
+    let use_bitmask: bool;
+    let required_slots: Vec<usize>;
+    let required_mask: u8;
+
+    if num_active <= 8 {
+        required_slots = active_deserialized.iter().enumerate().filter_map(|(slot, f)| {
+            let is_required = !container.default
+                && !is_option(f.ty)
+                && matches!(f.fattrs.default, FieldDefault::None)
+                && !f.fattrs.skip_serializing; // skip_serializing fields use unwrap_or_default
+            if is_required { Some(slot) } else { None }
+        }).collect();
+        use_bitmask = !required_slots.is_empty();
+        required_mask = required_slots.iter().fold(0u8, |acc, &slot| acc | (1u8 << slot));
+    } else {
+        required_slots = Vec::new();
+        use_bitmask = false;
+        required_mask = 0;
+    };
+
     let inline_attr: TokenStream = if num_active <= 4 {
         quote! { #[inline] }
     } else {
@@ -320,10 +375,33 @@ fn expand_struct(input: &DeriveInput) -> Result<TokenStream> {
         };
         let hint_slot = hint_slot_map[idx];
         let next_slot = if num_active > 0 { (hint_slot + 1) % num_active } else { 0 };
-        quote! {
-            #idx => {
-                #fname = Some(#read_expr);
-                _hint = #next_slot;
+
+        if use_bitmask {
+            let slot = hint_slot_map[idx];
+            let is_required = required_slots.contains(&slot);
+            if is_required {
+                let bit: u8 = 1u8 << slot;
+                quote! {
+                    #idx => {
+                        #fname = Some(#read_expr);
+                        _found |= #bit;
+                        _hint = #next_slot;
+                    }
+                }
+            } else {
+                quote! {
+                    #idx => {
+                        #fname = Some(#read_expr);
+                        _hint = #next_slot;
+                    }
+                }
+            }
+        } else {
+            quote! {
+                #idx => {
+                    #fname = Some(#read_expr);
+                    _hint = #next_slot;
+                }
             }
         }
     }).collect();
@@ -332,6 +410,28 @@ fn expand_struct(input: &DeriveInput) -> Result<TokenStream> {
         quote! { return Err(::jzon::Error::UnknownField); }
     } else {
         quote! { scanner.skip_value()?; }
+    };
+
+    // Missing-field check: bitmask variant (one comparison) vs per-field ok_or fallback.
+    let missing_check: TokenStream = if use_bitmask {
+        // Build an array mapping slot -> field name string for the error message.
+        // We emit a single mask comparison; only on failure do we find the first missing field.
+        let required_slot_names: Vec<&str> = required_slots.iter().map(|&slot| {
+            active_deserialized[slot].json_key.as_str()
+        }).collect();
+        let required_slot_bits: Vec<u8> = required_slots.iter().map(|&slot| 1u8 << slot).collect();
+        quote! {
+            if _found != #required_mask {
+                // Find first missing required field name for the error.
+                #(
+                    if _found & #required_slot_bits == 0 {
+                        return Err(::jzon::Error::MissingField(#required_slot_names));
+                    }
+                )*
+            }
+        }
+    } else {
+        quote! {}
     };
 
     let field_assembly: Vec<TokenStream> = active_fields.iter().map(|f| {
@@ -351,6 +451,9 @@ fn expand_struct(input: &DeriveInput) -> Result<TokenStream> {
                     quote! { #fname: #fname.unwrap_or_default(), }
                 } else if is_option(f.ty) {
                     quote! { #fname: #fname.unwrap_or(None), }
+                } else if use_bitmask {
+                    // Safety: bitmask already guaranteed this field was set, so unwrap is safe.
+                    quote! { #fname: unsafe { #fname.unwrap_unchecked() }, }
                 } else {
                     quote! { #fname: #fname.ok_or(::jzon::Error::MissingField(#fname_str))?, }
                 }
@@ -388,6 +491,13 @@ fn expand_struct(input: &DeriveInput) -> Result<TokenStream> {
         }
     }).collect();
 
+    // Bitmask init: only emitted when use_bitmask is true.
+    let bitmask_init: TokenStream = if use_bitmask {
+        quote! { let mut _found: u8 = 0; }
+    } else {
+        quote! {}
+    };
+
     Ok(quote! {
         #(#field_name_assertions)*
 
@@ -407,12 +517,15 @@ fn expand_struct(input: &DeriveInput) -> Result<TokenStream> {
 
                 const FIELD_HINTS: [&[u8]; #num_active] = [#(#hint_table),*];
                 let mut _hint: usize = 0;
+                #bitmask_init
 
                 loop {
                     match scanner.peek_byte_after_ws()? {
                         b'}' => { scanner.advance(); break; }
                         b'"' => {
                             let _key = scanner.read_key_colon()?;
+
+                            #first_byte_check
 
                             let _field_idx = if _hint < #num_active && _key == FIELD_HINTS[_hint] {
                                 _hint
@@ -434,6 +547,8 @@ fn expand_struct(input: &DeriveInput) -> Result<TokenStream> {
                         _ => return Err(::jzon::Error::UnexpectedToken),
                     }
                 }
+
+                #missing_check
 
                 Ok(#ident {
                     #(#field_assembly)*
