@@ -320,6 +320,7 @@ pub fn scan_string_run_scalar(input: &[u8], start: usize) -> (usize, bool) {
 }
 
 #[cfg(feature = "simd")]
+#[allow(dead_code)] // used when simd-intrinsics is off or as a non-x86/aarch64 fallback
 fn scan_string_run_simd16(input: &[u8], start: usize, mut ascii_only: bool) -> (usize, bool) {
     let mut i = start;
     const HIGH: u128 = 0x8080_8080_8080_8080_8080_8080_8080_8080_u128;

@@ -447,7 +447,7 @@ pub mod x86 {
             let slash = _mm_set1_epi8(b'\\' as i8);
             let ctrl_thresh = _mm_set1_epi8(0x1f);
             let zero = _mm_setzero_si128();
-            let high = _mm_set1_epi8(0x80);
+            let high = _mm_set1_epi8(0x80u8 as i8);
 
             while i + 16 <= len {
                 let chunk = _mm_loadu_si128(ptr.add(i) as *const __m128i);
@@ -486,7 +486,7 @@ pub mod x86 {
             let slash = _mm256_set1_epi8(b'\\' as i8);
             let ctrl_thresh = _mm256_set1_epi8(0x1f);
             let zero = _mm256_setzero_si256();
-            let high = _mm256_set1_epi8(0x80);
+            let high = _mm256_set1_epi8(0x80u8 as i8);
 
             while i + 32 <= len {
                 let chunk = _mm256_loadu_si256(ptr.add(i) as *const __m256i);
