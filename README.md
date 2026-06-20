@@ -90,18 +90,18 @@ drop-in replacement).
 
 Up to **3.6× serde_json**, **2.4× sonic-rs**, **7.8× simd-json** on
 real-world workloads. <!-- bench:top-ser-start -->
-Top: **55.92 GiB/s** twitter serialize
+Top: **57.70 GiB/s** twitter serialize
 <!-- bench:top-ser-end -->.
 
 <!-- bench:headline-start -->
 | Platform | twitter de | twitter ser | citm de | canada ser |
 |---|--:|--:|--:|--:|
-| x86_64 Linux (AVX2)          | 1.22 GiB/s | 47.5 GiB/s | 2.12 GiB/s |  702 MiB/s |
+| x86_64 Linux (AVX2)          | 1.58 GiB/s | 57.70 GiB/s | 2.57 GiB/s |  734 MiB/s |
 | aarch64 Linux (Graviton)     | 1.27 GiB/s | 39.5 GiB/s | 2.36 GiB/s |  916 MiB/s |
 | Apple Silicon (macOS)        | 1.35 GiB/s | 55.92 GiB/s | 2.66 GiB/s |  901 MiB/s |
-| x86_64 Windows (AVX2)        | 1.18 GiB/s | 42.36 GiB/s | 2.16 GiB/s |  453 MiB/s |
+| x86_64 Windows (AVX2)        | 1.35 GiB/s | 43.72 GiB/s | 2.16 GiB/s |  492 MiB/s |
 | Windows on ARM               | 1.15 GiB/s | 38.58 GiB/s | 2.33 GiB/s |  642 MiB/s |
-| **Best across platforms** | 1.35 GiB/s | 55.92 GiB/s | 2.66 GiB/s |  916 MiB/s |
+| **Best across platforms** | 1.58 GiB/s | 57.70 GiB/s | 2.66 GiB/s |  916 MiB/s |
 <!-- bench:headline-end -->
 
 Full matrix + competitor comparison + workloads where we lose:
