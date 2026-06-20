@@ -333,13 +333,9 @@ impl<'de, V: FromJson<'de>> FromJson<'de> for HashMap<String, V> {
             match sc.peek_byte_after_ws()? {
                 b'}' => { sc.advance(); break; }
                 b'"' => {
-                    // read_key_colon: zero-copy raw bytes, no intermediate JsonStr allocation.
+                    // read_str_key_colon: zero-copy borrowed key, no intermediate JsonStr allocation.
                     // Returns EscapedKey error if backslash present (uncommon in map keys).
-                    let key_bytes = sc.read_key_colon()?;
-                    // JSON keys are guaranteed valid UTF-8; from_utf8 is infallible here.
-                    let key = core::str::from_utf8(key_bytes)
-                        .map_err(|_| Error::InvalidUtf8)?
-                        .to_owned();
+                    let key = sc.read_str_key_colon()?.to_owned();
                     let val = V::from_json_scanner(sc)?;
                     map.insert(key, val);
                     match sc.peek_byte_after_ws()? {
@@ -397,11 +393,8 @@ impl<'de, V: FromJson<'de>> FromJson<'de> for BTreeMap<String, V> {
             match sc.peek_byte_after_ws()? {
                 b'}' => { sc.advance(); break; }
                 b'"' => {
-                    // read_key_colon: zero-copy raw bytes — same optimization as HashMap.
-                    let key_bytes = sc.read_key_colon()?;
-                    let key = core::str::from_utf8(key_bytes)
-                        .map_err(|_| Error::InvalidUtf8)?
-                        .to_owned();
+                    // read_str_key_colon: zero-copy borrowed key — same optimization as HashMap.
+                    let key = sc.read_str_key_colon()?.to_owned();
                     let val = V::from_json_scanner(sc)?;
                     map.insert(key, val);
                     match sc.peek_byte_after_ws()? {
