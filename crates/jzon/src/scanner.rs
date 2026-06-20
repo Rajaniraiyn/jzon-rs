@@ -234,7 +234,7 @@ impl<'de> Scanner<'de> {
     /// Read a JSON object key and the mandatory `:` separator, returning a
     /// validated UTF-8 key borrow.
     #[inline]
-    pub fn read_str_key_colon(&mut self) -> Result<&'de str, Error> {
+    pub(crate) fn read_str_key_colon(&mut self) -> Result<&'de str, Error> {
         let key = self.read_key_colon()?;
         core::str::from_utf8(key).map_err(|_| Error::InvalidUtf8)
     }
